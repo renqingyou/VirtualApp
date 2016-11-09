@@ -12,6 +12,7 @@ import com.lody.virtual.client.hook.patchs.appops.AppOpsManagerPatch;
 import com.lody.virtual.client.hook.patchs.appwidget.AppWidgetManagerPatch;
 import com.lody.virtual.client.hook.patchs.audio.AudioManagerPatch;
 import com.lody.virtual.client.hook.patchs.backup.BackupManagerPatch;
+import com.lody.virtual.client.hook.patchs.bluetooth.BluetoothPatch;
 import com.lody.virtual.client.hook.patchs.clipboard.ClipBoardPatch;
 import com.lody.virtual.client.hook.patchs.connectivity.ConnectivityPatch;
 import com.lody.virtual.client.hook.patchs.content.ContentServicePatch;
@@ -43,7 +44,6 @@ import com.lody.virtual.client.hook.patchs.wifi.WifiManagerPatch;
 import com.lody.virtual.client.hook.patchs.window.WindowManagerPatch;
 import com.lody.virtual.client.interfaces.IHookObject;
 import com.lody.virtual.client.interfaces.Injectable;
-import com.lody.virtual.helper.utils.Reflect;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -62,44 +62,26 @@ import static android.os.Build.VERSION_CODES.M;
 public final class PatchManager {
 
 	private static final String TAG = PatchManager.class.getSimpleName();
-	private Map<Class<?>, Injectable> injectableMap = new HashMap<>(12);
+
+	private Map<Class<?>, Injectable> injectTable = new HashMap<>(12);
 
 	private PatchManager() {
 	}
 
-	/**
-	 * @return 注入管理器实例
-	 */
 	public static PatchManager getInstance() {
 		return PatchManagerHolder.sPatchManager;
 	}
 
-	private static void fixSetting(Class<?> settingClass) {
-		Reflect.on(settingClass).field("sNameValueCache").set("mContentProvider", null);
-	}
-
 	void injectAll() throws Throwable {
-		for (Injectable injectable : injectableMap.values()) {
+		for (Injectable injectable : injectTable.values()) {
 			injectable.inject();
 		}
 		// XXX: Lazy inject the Instrumentation,
-		// this is important in many cases.
+		// It is important in many cases.
 		addPatch(AppInstrumentation.getDefault());
 	}
 
-	public void checkAll() {
-		for (Injectable injectable : injectableMap.values()) {
-			if (injectable.isEnvBad()) {
-				try {
-					injectable.inject();
-				} catch (Throwable e) {
-					e.printStackTrace();
-				}
-			}
-		}
-	}
-
-	/**
+    /**
 	 * @return 是否已经初始化
 	 */
 	public boolean isInit() {
@@ -120,7 +102,7 @@ public final class PatchManager {
 		if (VirtualCore.get().isMainProcess()) {
 			return;
 		}
-		if (VirtualCore.get().isServiceProcess()) {
+		if (VirtualCore.get().isServerProcess()) {
 			addPatch(new ActivityManagerPatch());
 			addPatch(new PackageManagerPatch());
 			return;
@@ -152,6 +134,7 @@ public final class PatchManager {
 			if (Build.VERSION.SDK_INT >= JELLY_BEAN_MR2) {
 				addPatch(new VibratorPatch());
 				addPatch(new WifiManagerPatch());
+				addPatch(new BluetoothPatch());
 			}
 			if (Build.VERSION.SDK_INT >= JELLY_BEAN_MR1) {
 				addPatch(new UserManagerPatch());
@@ -184,12 +167,12 @@ public final class PatchManager {
 	}
 
 	private void addPatch(Injectable injectable) {
-		injectableMap.put(injectable.getClass(), injectable);
+		injectTable.put(injectable.getClass(), injectable);
 	}
 
 	public <T extends Injectable> T findPatch(Class<T> clazz) {
 		// noinspection unchecked
-		return (T) injectableMap.get(clazz);
+		return (T) injectTable.get(clazz);
 	}
 
 	public <T extends Injectable> void checkEnv(Class<T> clazz) {

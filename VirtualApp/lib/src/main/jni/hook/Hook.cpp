@@ -5,7 +5,6 @@
 
 static std::map<std::string/*orig_path*/, std::string/*new_path*/> IORedirectMap;
 static std::map<std::string/*orig_path*/, std::string/*new_path*/> RootIORedirectMap;
-
 static inline void hook_template(const char *lib_so, const char *symbol, void *new_func, void **old_func) {
     void *handle = dlopen(lib_so, RTLD_GLOBAL | RTLD_LAZY);
     if (handle == NULL) {
@@ -89,7 +88,7 @@ const char *HOOK::query(const char *org_path) {
 
 
 const char *HOOK::restore(const char *path) {
-
+    return path;
 }
 
 
@@ -149,7 +148,7 @@ HOOK_DEF(int, fstatat, int dirfd, const char *pathname, struct stat *buf, int fl
 // int fstat(const char *pathname, struct stat *buf, int flags);
 HOOK_DEF(int, fstat, const char *pathname, struct stat *buf) {
     const char *redirect_path = match_redirected_path(pathname);
-    int ret = syscall(__NR_fstatat64, redirect_path, buf);
+    int ret = syscall(__NR_fstat64, redirect_path, buf);
     FREE(redirect_path, pathname);
     return ret;
 }
@@ -447,7 +446,6 @@ HOOK_DEF(int ,execve, const char *pathname, char *const argv[], char *const envp
 
 // int kill(pid_t pid, int sig);
 HOOK_DEF(int ,kill, pid_t pid, int sig) {
-    LOGE(",,, kill, pid=%d, sig=%d", pid, sig);
     extern JavaVM *g_vm;
     extern jclass g_jclass;
     JNIEnv *env = NULL;
@@ -455,15 +453,12 @@ HOOK_DEF(int ,kill, pid_t pid, int sig) {
     g_vm->AttachCurrentThread(&env, NULL);
     jmethodID  method = env->GetStaticMethodID(g_jclass, JAVA_CALLBACK__ON_KILL_PROCESS, JAVA_CALLBACK__ON_KILL_PROCESS_SIGNATURE);
     env->CallStaticVoidMethod(g_jclass, method, pid, sig);
-    LOGE(",,, kill, Done ! callbacked to Java");
     int ret = syscall(__NR_kill, pid, sig);
     return ret;
 }
 
 __END_DECLS
 // end IO hooks
-
-
 
 
 
@@ -480,6 +475,7 @@ void HOOK::hook(int api_level) {
     HOOK_IO(chroot);
     HOOK_IO(truncate64);
     HOOK_IO(kill);
+
 //    HOOK_IO(execve);
 //    HOOK_IO(strncmp);
 //    HOOK_IO(strstr);

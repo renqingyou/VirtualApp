@@ -12,8 +12,8 @@ import com.lody.virtual.client.core.VirtualCore;
 import com.lody.virtual.client.fixer.ActivityFixer;
 import com.lody.virtual.client.fixer.ContextFixer;
 import com.lody.virtual.client.interfaces.Injectable;
-import com.lody.virtual.client.local.ActivityClientRecord;
-import com.lody.virtual.client.local.VActivityManager;
+import com.lody.virtual.client.ipc.ActivityClientRecord;
+import com.lody.virtual.client.ipc.VActivityManager;
 import com.lody.virtual.helper.compat.ActivityManagerCompat;
 import com.lody.virtual.helper.compat.BundleCompat;
 
@@ -25,6 +25,7 @@ import mirror.android.app.ActivityThread;
 public final class AppInstrumentation extends InstrumentationDelegate implements Injectable {
 
 	private static final String TAG = AppInstrumentation.class.getSimpleName();
+
 	private static AppInstrumentation gDefault;
 
 	private AppInstrumentation(Instrumentation base) {
@@ -63,6 +64,7 @@ public final class AppInstrumentation extends InstrumentationDelegate implements
 
 	@Override
 	public void callActivityOnCreate(Activity activity, Bundle icicle) {
+        VirtualCore.get().getComponentDelegate().beforeActivityCreate(activity);
 		IBinder token = mirror.android.app.Activity.mToken.get(activity);
 		ActivityClientRecord r = VActivityManager.get().getActivityRecord(token);
 		if (r != null) {
@@ -88,6 +90,7 @@ public final class AppInstrumentation extends InstrumentationDelegate implements
 
 	@Override
 	public void callActivityOnResume(Activity activity) {
+        VirtualCore.get().getComponentDelegate().beforeActivityResume(activity);
 		VActivityManager.get().onActivityResumed(activity);
 		super.callActivityOnResume(activity);
 		Intent intent = activity.getIntent();
@@ -96,6 +99,18 @@ public final class AppInstrumentation extends InstrumentationDelegate implements
 			IBinder loadingPageToken = BundleCompat.getBinder(bundle, "_VA_|_loading_token_");
 			ActivityManagerCompat.finishActivity(loadingPageToken, -1, null);
 		}
+	}
+
+	@Override
+	public void callActivityOnDestroy(Activity activity) {
+        VirtualCore.get().getComponentDelegate().beforeActivityDestroy(activity);
+		super.callActivityOnDestroy(activity);
+	}
+
+	@Override
+	public void callActivityOnPause(Activity activity) {
+        VirtualCore.get().getComponentDelegate().beforeActivityPause(activity);
+		super.callActivityOnPause(activity);
 	}
 
 
